@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create iam roles for instances
+Parameters:
+  Environment:
+    Type: String
+    Description: Used for miscellaneous object names and tags  
+  VPC:
+    Type: String
+    Description: Object ID of VPC
+Resources:
+  ECSRole: 
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      RoleName:
+        Fn::Join:
+            - ''
+            - - ecs_role_
+              - Ref: Environment
+  ECSPolicies: 
+    Type: "AWS::IAM::Policy"
+    Properties:       
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Action: "*"
+            Resource: "*"
+      Roles: 
+        - 
+          Ref: ECSRole
+      PolicyName:
+        Fn::Join:
+            - ''
+            - - ecs_policy_
+              - Ref: Environment
+  ECSInstanceProfile: 
+    Type: "AWS::IAM::InstanceProfile"
+    Properties: 
+      Path: "/"
+      Roles: 
+        - 
+          Ref: ECSRole
+      InstanceProfileName:
+        Fn::Join:
+            - ''
+            - - ecs_iam_profile_
+              - Ref: Environment
+  
+Outputs:
+  ECSInstanceProfile:
+    Description: Instance profile for ECS Server
+    Value:
+      Ref: ECSInstanceProfile  

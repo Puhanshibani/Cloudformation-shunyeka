@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create MySQL DB
+Parameters:
+  Environment:
+    Type: String
+    Description: Used for miscellaneous object names and tags
+  DBSubnets:
+    Type: CommaDelimitedList
+    Description: IDs of a public subnet for DB
+  DBSecurityGroup:
+    Type: String
+    Description: DB security group
+  GlobalSecurityGroup:
+    Type: String
+    Description: Global security group
+  DBInstanceClass:
+    Type: String
+    Description: DB instance type
+    Default: db.t2.micro
+  DBMasterPassword:
+    Type: String
+    Description: Password for db master user
+    Default: "NG$Pir7ySMJ9m&p9"
+  DBMasterUser:
+    Type: String
+    Description: Username for db master user
+    Default: "MOOVE_DEV"
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS DB Subnet Group public
+      DBSubnetGroupName: !Join ["", ["db_subnet_grp_", !Ref Environment]]
+      SubnetIds: !Ref DBSubnets
+      Tags:
+        - Key: Name
+          Value: !Join ["", ["db_subnet_grp_", !Ref Environment]]
+  MasterDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      StorageType: gp2
+      DBName: mysqldb
+      DBInstanceClass: !Ref DBInstanceClass
+      DBInstanceIdentifier: !Join ["", ["moove-", !Ref Environment]]
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups: [!Ref DBSecurityGroup, !Ref GlobalSecurityGroup]
+      SourceRegion: us-east-2
+      Engine: MySQL
+      EngineVersion: 5.7.22
+      MasterUserPassword: !Ref DBMasterPassword
+      MasterUsername: !Ref DBMasterUser
+      Tags:
+        - Key: Name
+          Value: !Join ["", ["db_moove_", !Ref Environment]]
+
+Outputs:
+
+  DatabaseEndPoint:
+    Description: RDS Database Endpoint
+    Value: !GetAtt "MasterDB.Endpoint.Address"

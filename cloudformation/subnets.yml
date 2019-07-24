@@ -1,0 +1,326 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create security groups for instances in public/private VPC
+Parameters:
+  Environment:
+    Type: String
+    Description: Used for miscellaneous object names and tags  
+  VPC:
+    Type: String
+    Description: Object ID of VPC
+  PublicSubnetAZ1:
+    Type: String
+    Description: IP Address range for AZ1 public subnet
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Valid IP CIDR block range - x.x.x.x/x.
+    Default: 10.10.0.0/24
+  # PublicSubnetAZ2:
+  #   Type: String
+  #   Description: IP Address range for AZ2 public subnet
+  #   MinLength: '9'
+  #   MaxLength: '18'
+  #   AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+  #   ConstraintDescription: Valid IP CIDR block range - x.x.x.x/x.
+  #   Default: 10.10.2.0/24
+  # PrivateSubnetAZ1:
+  #   Type: String
+  #   Description: IP Address range for AZ1 private subnet
+  #   MinLength: '9'
+  #   MaxLength: '18'
+  #   AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+  #   ConstraintDescription: Valid IP CIDR block range - x.x.x.x/x.
+  #   Default: 10.10.1.0/24
+  # PrivateSubnetAZ2:
+  #   Type: String
+  #   Description: IP Address range for AZ2 private subnet
+  #   MinLength: '9'
+  #   MaxLength: '18'
+  #   AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+  #   ConstraintDescription: Valid IP CIDR block range - x.x.x.x/x.
+    Default: 10.10.3.0/24  
+  AvZone1:
+    Type: String
+    Description: First AZ to use for subnets, etc.
+    ConstraintDescription: 'Must be a valid AZ - # aws ec2 describe-availability-zones'
+    Default: us-east-2a
+  # AvZone2:
+  #   Type: String
+  #   Description: Second AZ to use for subnets, etc.
+  #   ConstraintDescription: 'Must be a valid AZ - # aws ec2 describe-availability-zones'
+  #   Default: us-east-2b
+
+Resources:
+
+  InetGw:
+      Type: AWS::EC2::InternetGateway
+      Properties:
+        Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+            - ''
+            - - igw_
+              - Ref: Environment
+        - Key: Environment
+          Value:
+            Ref: Environment
+
+  IgwAttachment:
+    DependsOn:
+    - InetGw
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: VPC
+      InternetGatewayId:
+        Ref: InetGw  
+
+  PubSubnetAZ1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+         Ref: VPC
+      AvailabilityZone:
+        Ref: AvZone1
+      CidrBlock:
+        Ref: PublicSubnetAZ1
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - subnet_
+            - Ref: Environment
+            - _public_az1
+      - Key: Environment
+        Value:
+          Ref: Environment
+
+  # PubSubnetAZ2:
+  #   Type: AWS::EC2::Subnet
+  #   Properties:
+  #     VpcId:
+  #       Ref: VPC
+  #     AvailabilityZone:
+  #       Ref: AvZone2
+  #     CidrBlock:
+  #       Ref: PublicSubnetAZ2
+  #     Tags:
+  #     - Key: Name
+  #       Value:
+  #         Fn::Join:
+  #         - ''
+  #         - - subnet_
+  #           - Ref: Environment
+  #           - _public_az2
+  #     - Key: Environment
+  #       Value:
+  #         Ref: Environment
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - rtb_
+            - Ref: Environment
+            - _public
+      - Key: SubnetType
+        Value: public
+      - Key: Environment
+        Value:
+          Ref: Environment
+
+  PublicRoute:
+    DependsOn:
+    - IgwAttachment
+    - PublicRouteTable
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InetGw
+
+  PubRouteTableAssocAZ1:
+    DependsOn:
+    - PubSubnetAZ1
+    - PublicRouteTable
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PubSubnetAZ1
+      RouteTableId:
+        Ref: PublicRouteTable 
+
+  # PubRouteTableAssocAZ2:
+  #   DependsOn:
+  #   - PubSubnetAZ2
+  #   - PublicRouteTable
+  #   Type: AWS::EC2::SubnetRouteTableAssociation
+  #   Properties:
+  #     SubnetId:
+  #       Ref: PubSubnetAZ2
+  #     RouteTableId:
+  #       Ref: PublicRouteTable
+
+  # PrivSubnetAZ1:
+  #   Type: AWS::EC2::Subnet
+  #   Properties:
+  #     VpcId:
+  #       Ref: VPC
+  #     AvailabilityZone:
+  #       Ref: AvZone1
+  #     CidrBlock:
+  #       Ref: PrivateSubnetAZ1
+  #     Tags:
+  #     - Key: Name
+  #       Value:
+  #         Fn::Join:
+  #         - ''
+  #         - - subnet_
+  #           - Ref: Environment
+  #           - _private_az1
+  #     - Key: Environment
+  #       Value:
+  #         Ref: Environment
+
+  # PrivSubnetAZ2:
+  #   Type: AWS::EC2::Subnet
+  #   Properties:
+  #     VpcId:
+  #       Ref: VPC
+  #     AvailabilityZone:
+  #       Ref: AvZone2
+  #     CidrBlock:
+  #       Ref: PrivateSubnetAZ2
+  #     Tags:
+  #     - Key: Name
+  #       Value:
+  #         Fn::Join:
+  #         - ''
+  #         - - subnet_
+  #           - Ref: Environment
+  #           - _private_az2
+  #     - Key: Environment
+  #       Value:
+  #         Ref: Environment  
+
+  # NatGatewayEipAZ1:
+  #   DependsOn:
+  #   - IgwAttachment
+  #   Type: AWS::EC2::EIP
+  #   Properties:
+  #     Domain: vpc
+
+  # NatGatewayAZ1:
+  #   DependsOn:
+  #   - NatGatewayEipAZ1
+  #   - PubSubnetAZ1
+  #   - IgwAttachment
+  #   Type: AWS::EC2::NatGateway
+  #   Properties:
+  #     AllocationId:
+  #       Fn::GetAtt:
+  #       - NatGatewayEipAZ1
+  #       - AllocationId
+  #     SubnetId:
+  #       Ref: PubSubnetAZ1
+  
+  # PrivateRouteAZ1:
+  #   DependsOn:
+  #   - PrivateRouteTableAZ1
+  #   - NatGatewayAZ1
+  #   - IgwAttachment
+  #   Type: AWS::EC2::Route
+  #   Properties:
+  #     RouteTableId:
+  #       Ref: PrivateRouteTableAZ1
+  #     DestinationCidrBlock: 0.0.0.0/0
+  #     NatGatewayId:
+  #       Ref: NatGatewayAZ1  
+
+  # PrivateRouteTableAZ1:
+  #   Type: AWS::EC2::RouteTable
+  #   Properties:
+  #     VpcId:
+  #       Ref: VPC
+  #     Tags:
+  #     - Key: Name
+  #       Value:
+  #         Fn::Join:
+  #         - ''
+  #         - - rtb_
+  #           - Ref: Environment
+  #           - _private_az1
+  #     - Key: SubnetType
+  #       Value: private
+  #     - Key: Environment
+  #       Value:
+  #         Ref: Environment
+
+  # PrivateRouteTableAZ2:
+  #   Type: AWS::EC2::RouteTable
+  #   Properties:
+  #     VpcId:
+  #       Ref: VPC
+  #     Tags:
+  #     - Key: Name
+  #       Value:
+  #         Fn::Join:
+  #         - ''
+  #         - - rtb_
+  #           - Ref: Environment
+  #           - _private_az2
+  #     - Key: SubnetType
+  #       Value: private
+  #     - Key: Environment
+  #       Value:
+  #         Ref: Environment
+
+  # PrivRouteTableAssocAZ1:
+  #   DependsOn:
+  #   - PrivSubnetAZ1
+  #   - PrivateRouteTableAZ1
+  #   Type: AWS::EC2::SubnetRouteTableAssociation
+  #   Properties:
+  #     SubnetId:
+  #       Ref: PrivSubnetAZ1
+  #     RouteTableId:
+  #       Ref: PrivateRouteTableAZ1
+
+  # PrivRouteTableAssocAZ2:
+  #   DependsOn:
+  #   - PrivSubnetAZ2
+  #   - PrivateRouteTableAZ2
+  #   Type: AWS::EC2::SubnetRouteTableAssociation
+  #   Properties:
+  #     SubnetId:
+  #       Ref: PrivSubnetAZ2
+  #     RouteTableId:
+  #       Ref: PrivateRouteTableAZ2
+
+Outputs:
+  PubSubnetAZ1:
+    Description: Generic public subnet in az1
+    Value:
+      Ref: PubSubnetAZ1
+  # PrivSubnetAZ1:
+  #   Description: Generic private subnet in az1
+  #   Value:
+  #     Ref: PrivSubnetAZ1
+  # PubSubnetAZ2:
+  #   Description: Generic private subnet in az2
+  #   Value:
+  #     Ref: PubSubnetAZ2
+  # PrivSubnetAZ2:
+  #   Description: Generic private subnet in az2
+  #   Value:
+  #     Ref: PrivSubnetAZ2
