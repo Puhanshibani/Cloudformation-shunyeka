@@ -1,0 +1,90 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create security groups for instances in public/private VPC
+Parameters:
+  Environment:
+    Type: String
+    Description: Used for miscellaneous object names and tags
+  VPC:
+    Type: String
+    Description: Object ID of VPC
+
+Resources:
+  GlobalSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName:
+        Fn::Join:
+          - ""
+          - - globla_sg_
+            - Ref: Environment
+      GroupDescription: allow ssh connection from anywhere and to anywhere
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - ""
+              - - globla_sg_
+                - Ref: Environment
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName:
+        Fn::Join:
+          - ""
+          - - ec2_sg_
+            - Ref: Environment
+      GroupDescription: allow public access from anywhere and to anywhere
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - ""
+              - - ec2_sg_
+                - Ref: Environment
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ["", ["db_sg_", !Ref Environment]]
+      GroupDescription: Security Group for the database
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ["", ["db_sg_", !Ref Environment]]
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "3306"
+          ToPort: "3306"
+
+Outputs:
+  GlobalSecurityGroup:
+    Description: Security group for all instances
+    Value:
+      Ref: GlobalSecurityGroup
+  EC2SecurityGroup:
+    Description: Security group for all instances
+    Value:
+      Ref: EC2SecurityGroup
+  DBSecurityGroup:
+    Description: Security group for DB server.
+    Value:
+      Ref: DBSecurityGroup
